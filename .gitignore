@@ -1,0 +1,19 @@
+# Allowlist: only the paths below are published.
+# Everything else in this folder stays local, including openspec/ (this project's own
+# planning records), .private/ (privacy tools) and anything added later.
+/*
+!/.gitignore
+!/.claude-plugin/
+!/skills/
+!/schemas/
+!/README.md
+!/README.zh-CN.md
+!/README.ja.md
+!/LICENSE
+
+# OS and editor leftovers inside the published folders
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~

@@ -1,0 +1,18 @@
+{
+  "name": "dopsx",
+  "owner": {
+    "name": "Emiyashare",
+    "url": "https://github.com/Emiyashare"
+  },
+  "metadata": {
+    "description": "Marketplace for dopsx, the document-work edition of OpenSpec's /opsx. Docs in English, 中文 and 日本語."
+  },
+  "plugins": [
+    {
+      "name": "dopsx",
+      "source": "./",
+      "description": "Document-work edition of OpenSpec's /opsx: plan, produce, verify and archive filings, applications, contracts, letters and invoices with the openspec CLI.",
+      "version": "1.0.0"
+    }
+  ]
+}
