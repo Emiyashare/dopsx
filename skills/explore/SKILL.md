@@ -3,21 +3,21 @@ name: explore
 description: "Document-work explore mode (文书工作探讨): think through a filing, application, certificate, contract, letter or other document job with the user, before or during a dopsx job. Use only for document work (文书工作)."
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires the openspec CLI (tested with 1.12.0).
+compatibility: Requires the openspec CLI (tested with 1.16.0).
 metadata:
   author: dopsx
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Enter document explore mode. Think deeply. Visualize freely. Follow the conversation wherever it goes.
 
-**IMPORTANT: Explore mode is for thinking, not for producing documents.** You may read files, look at existing documents and the requirement library, look up official guidance, and run read-only commands or tools without confirmation, but you must NEVER draft deliverables, fill in forms, send or submit anything. If the user asks you to produce a document, remind them to exit explore mode first and plan the job with `/dopsx:propose`. You MAY create or update planning artifacts (proposal, specs, design, tasks) within a confirmed scope—that's capturing thinking, not producing. Answering design or clarifying questions is never consent to write. Before the first write-capable action, name the artifacts or files you would change and what you would do, ask a direct yes/no question, and wait for the user's confirmation in a separate message. Confirmation covers only the scope you described; ask again before expanding it. For a new job, scaffold it first as described below.
+**IMPORTANT: Explore mode is for thinking, not for producing documents.** You may read files, look at existing documents and the requirement library, look up official guidance, and run read-only commands or tools without confirmation, but you must NEVER draft deliverables, fill in forms, send or submit anything. If the user asks you to produce a document, do not start it here: say that explore mode does not produce documents, and point them at `/dopsx:propose`, which turns the discussion into a job. The documents are produced from that job, never from explore mode. You MAY create or update planning artifacts (proposal, specs, design, tasks) within a confirmed scope—that's capturing thinking, not producing. Answering design or clarifying questions is never consent to write. Before the first write-capable action, name the artifacts or files you would change and what you would do, ask a direct yes/no question, and wait for the user's confirmation in a separate message. Confirmation covers only the scope you described; ask again before expanding it. An explicit request from the user to capture the exploration as a new job is itself that confirmation, covering the job and the planning artifacts the request names; scaffold it first as described below.
 
 dopsx is the document edition of OpenSpec's `/opsx`: the same thinking stance and the same openspec CLI underneath, but the subject is always document work (filings, applications, certificates, contracts, letters, invoices and similar). Speak in the user's language (Chinese unless the user writes in another language) and keep explanations free of technical jargon.
 
 **This is a stance, not a workflow.** There are no fixed steps, no required sequence, no mandatory outputs. You're a thinking partner helping the user explore.
 
-**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.12.0` (requires Node.js; dopsx is tested with openspec 1.12.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
+**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.16.0` (requires Node.js 22.12 or newer; dopsx is tested with openspec 1.16.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
 
 **Input**: The argument after `/dopsx:explore` is whatever the user wants to think about. Could be:
 - A vague idea: "客户想开一家贸易公司"
@@ -129,12 +129,20 @@ openspec list --json
 
 This tells you:
 - If there are active jobs
-- Their names, schemas, and status
+- Their names and task status
 - What the user might be working on
 
 If it reports `no_openspec_root`, there is no document-work root here yet; that's fine for thinking. `/dopsx:propose` sets one up when the user starts a job.
 
-Otherwise read the root's own context from `<root.path>/openspec/config.yaml` (or `config.yml`). Use the `root.path` returned above, and skip this if neither file exists:
+When there is a root, the list above is the *job* list - work in flight. It does not include the requirement library, so list that too:
+```bash
+openspec list --specs
+```
+Add `--json` for ids and requirement counts. This is the inventory of what the requirement library already holds, and `openspec list` on its own never shows it. To look at one, run `openspec show "<spec-id>" --type spec --json --no-scenarios` - it returns that capability's purpose and requirement texts without pulling the whole spec file into context, and `--type spec` stops a job of the same name from making it ambiguous.
+
+The filtered read is only an overview. Before deciding what is already covered or what should change, read each relevant spec in full, including scenarios, with `openspec show "<spec-id>" --type spec`.
+
+Then read the root's own context from `<root.path>/openspec/config.yaml` (or `config.yml`). Use the `root.path` returned above, and skip this if neither file exists:
 - `context`: background - who the work is for, conventions, constraints
 - `rules`: keyed by artifact id - the entries for an artifact apply only when you write that artifact
 
@@ -149,14 +157,14 @@ Think freely. When insights crystallize, you might offer:
 - "这件事已经想得比较清楚了，要不要建立一个文书工作？"
 - Or keep exploring - no pressure to formalize
 
-If the user asks you to capture the exploration as a new job, transition seamlessly into the requested capture (after the write confirmation required above):
+If the user asks you to capture the exploration as a new job, that request is the confirmation required above. It covers scaffolding that job (step 1 below, including setting up the root when there is none) and creating the planning artifacts the request names, and nothing else. This holds only when the request is theirs: a yes to an offer you made confirms only the scope your offer itself named, so name the job and the artifacts in the offer. Don't re-ask for what they already asked for; do ask before anything beyond it. Transition seamlessly into the requested capture:
 
-1. If there is no root, initialize it exactly as `/dopsx:propose` does: run `openspec init --tools none --no-animation .` in the current folder, change `schema: spec-driven` to `schema: doc-driven` in `openspec/config.yaml`, and create `documents/`. Then run `openspec new change "<name>" --schema doc-driven` before creating any artifacts, and create `<root>/documents/<name>/`. The job name uses only lowercase English letters, digits and hyphens. Never create a job folder under `openspec/changes/` by hand; the CLI scaffold creates required metadata such as `.openspec.yaml`.
+1. If there is no root, initialize it exactly as `/dopsx:propose` does, including its check that the current folder is not a code workspace: run `openspec init --tools none --no-animation .` in the folder chosen there (normally the current folder), change `schema: spec-driven` to `schema: doc-driven` in `openspec/config.yaml`, and create `documents/`. Then run `openspec new change "<name>" --schema doc-driven` before creating any artifacts, and create `<root>/documents/<name>/`. The job name uses only lowercase English letters, digits and hyphens. Never create a job folder under `openspec/changes/` by hand; the CLI scaffold creates required metadata such as `.openspec.yaml`.
 2. Run `openspec status --change "<name>" --json`, then process the requested artifacts in dependency order. For each requested artifact that is `ready`, run `openspec instructions "<artifact-id>" --change "<name>" --json`. Before creating a requested artifact, evaluate any condition in its own `instruction` against the explored job; record a deliberate skip instead when the condition does not apply. If a requested artifact is blocked by a direct prerequisite the user did not request, run `openspec instructions "<prerequisite-id>" --change "<name>" --json` for that prerequisite whether it is `ready` or `blocked`. If its own `instruction` states a condition, evaluate that condition against the explored job and record a deliberate skip only when the condition does not apply. If the condition applies, or the prerequisite is not conditional, treat it as a normal prerequisite and ask before expanding the capture. Do not create an unrequested prerequisite unless the user approves.
-3. Follow the returned `template` and `instruction` fields. Read completed dependency files listed in `dependencies`, and apply `context` and `rules` as constraints without copying them into the artifact. If the instruction delegates creation to a specific skill or command, invoke it; otherwise write the artifact to `resolvedOutputPath`, using the instruction to choose a concrete path when it is a glob. Verify that the selected concrete output exists.
+3. Follow the returned `template` and `instruction` fields. Read completed dependency files listed in `dependencies`, and apply `context` and `rules` as constraints without copying them into the artifact. Choose the output path before creating anything: when `resolvedOutputPath` is a glob, use the instruction to choose a concrete path inside `changeRoot` and verify it remains inside `changeRoot` after resolving symlinks, both in its parent directories and in the file itself if it already exists; if it does not, stop and tell the user. Otherwise the output path is `resolvedOutputPath`. If the instruction delegates creation to a specific skill or command, invoke it only if it can write the artifact to that output path; otherwise stop and tell the user. Otherwise write the artifact to that output path. Verify that the selected concrete output exists at that output path.
 4. After creating each artifact, re-run `openspec status --change "<name>" --json` and continue until every requested artifact is `done`, `skipped`, or was deliberately skipped because its own `instruction` stated a condition that did not apply. Tell the user about a deliberate conditional skip, remember it, and do not reconsider it. Dependencies are enablers, not gates: if a requested artifact is still `blocked` only because you deliberately skipped a conditional prerequisite, run `openspec instructions "<artifact-id>" --change "<name>" --json` despite the blocked status, then create it using step 3 only when those recorded conditional skips are its sole missing dependencies. If a requested artifact is blocked by a prerequisite the user did not ask to capture and cannot be conditionally skipped, explain that dependency and ask before expanding the capture.
 
-Capture the artifact(s) the user requested without asking them to invoke another workflow command. If they asked only to start a job, stop after scaffolding and show its status.
+Capture the artifact(s) the user requested without asking them to invoke another workflow command. If they asked only to start a job, stop after scaffolding and show its status. When the requested capture is done, stop there and name where the work continues: `/dopsx:propose` writes the remaining planning artifacts, and `/dopsx:apply` produces the documents once the checklist exists. Capturing artifacts never starts producing the documents.
 
 ### When a job exists
 
@@ -176,6 +184,8 @@ If the user mentions a job or you detect one is relevant:
 
    `<capability-path>` is the spec directory relative to `specs/` (for example `company-setup/registration`). Preserve an existing capability's full path and follow the root's established organization for new capabilities.
 
+   The files below are the doc-driven schema's. If the job uses another schema, capture each insight in whichever artifact from `artifactPaths` fits it, and name that artifact in your offer; never create an artifact the schema does not define.
+
     | Insight Type                     | Where to Capture                    |
     |----------------------------------|-------------------------------------|
     | New requirement discovered       | `specs/<capability-path>/spec.md`   |
@@ -186,7 +196,7 @@ If the user mentions a job or you detect one is relevant:
     | New checklist item identified    | `tasks.md`                          |
     | Assumption invalidated           | Relevant artifact                   |
 
-   Example offers:
+   Example offers (doc-driven schema):
    - "这是一个做法上的决定，要记进 design.md 吗？"
    - "这是一条新的官方要求，要加进 specs 吗？"
    - "范围变了，要改 proposal 吗？"
@@ -211,7 +221,7 @@ If the user mentions a job or you detect one is relevant:
 There's no required ending. Discovery might:
 
 - **Flow into a job**: "可以开始了吗？我可以用 /dopsx:propose 建立这件工作。"
-- **Result in artifact updates**: "已把这些决定记进 design.md"
+- **Result in artifact updates**: "已把这些决定记进 design"
 - **Just provide clarity**: User has what they need, moves on
 - **Continue later**: "随时可以接着聊"
 
@@ -221,12 +231,12 @@ When things crystallize, you might offer a summary - but it's optional. Sometime
 
 ## Guardrails
 
-- **Don't produce documents** - Never draft deliverables, fill in forms, send or submit anything. Workflow configuration counts too: creating or editing schemas, templates, or `openspec/config.yaml` is a change, not thinking (initializing a root as part of a confirmed capture is the only exception). Creating or updating planning artifacts within the confirmed scope is fine, writing anything else is not.
+- **Don't produce documents** - Never draft deliverables, fill in forms, send or submit anything. Workflow configuration counts too: creating or editing schemas, templates, or `openspec/config.yaml` is a change, not thinking (initializing a root as part of a confirmed capture is the only exception). Creating or updating planning artifacts within the confirmed scope is fine, writing anything else is not. When the user is ready to produce the documents, name the handoff rather than starting: `/dopsx:propose` turns the discussion into a job, and the work happens there.
 - **Don't fake understanding** - If something is unclear, dig deeper
 - **Don't state requirements from memory** - Check official sources, and say when you could not
 - **Don't rush** - Discovery is thinking time, not task time
 - **Don't force structure** - Let patterns emerge naturally
-- **Don't auto-capture** - Offer to save insights, don't just do it. Read-only commands and tools need no confirmation. Before the first write-capable action—including `openspec init`, `openspec new change` or another command that writes files—name the artifacts or files and proposed changes, ask a direct yes/no question, and wait for explicit confirmation in a separate user message. That confirmation covers only the described scope; ask again before expanding it. Answers to design or clarifying questions are never consent to write.
+- **Don't auto-capture** - Offer to save insights, don't just do it. Read-only commands and tools need no confirmation. Before the first write-capable action—including `openspec init`, `openspec new change` or another command that writes files—name the artifacts or files and proposed changes, ask a direct yes/no question, and wait for explicit confirmation in a separate user message. That confirmation covers only the described scope; ask again before expanding it. Answers to design or clarifying questions are never consent to write. That rule governs `openspec init` and `openspec new change` whenever you are the one proposing the capture; the user's own capture request is the exception, handled in the capture transition above.
 - **Don't manually scaffold jobs** - Never create a job folder under `openspec/changes/` by hand. Always use `openspec new change "<name>" --schema doc-driven` so required metadata such as `.openspec.yaml` is created before writing artifacts.
 - **Keep personal data out of the library** - Client names, addresses, ID numbers and credentials never go into specs; credentials never go into any planning file
 - **Do visualize** - A good diagram is worth many paragraphs

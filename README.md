@@ -15,14 +15,14 @@ dopsx is a Claude Code plugin for document work such as company registrations, l
 ## Prerequisites
 
 - Claude Code
-- Node.js
-- openspec CLI 1.12.0 (the version dopsx is tested with)
+- Node.js 22.12 or newer
+- openspec CLI 1.16.0 (the version dopsx is tested with)
 
 ## Install, update, uninstall
 
 Install the openspec CLI first:
 
-    npm install -g @fission-ai/openspec@1.12.0
+    npm install -g @fission-ai/openspec@1.16.0
 
 Then install the plugin from a terminal:
 
@@ -129,6 +129,7 @@ Notes:
 - To also save the final documents to a client's company folder, make "copy to the company folder" the last checklist item.
 - `/dopsx:apply` does not change your original materials (files outside `documents` and `openspec`): it copies a file before editing it, and asks you first if an original really must be changed.
 - If the folder already belongs to an OpenSpec code project, dopsx asks before creating a document job there.
+- If the folder has no `openspec` yet but is inside a git repository or contains code repositories, dopsx does not set up there: it suggests a separate folder (for example a new one next to it) and sets up in the folder you confirm.
 
 ## Job names
 

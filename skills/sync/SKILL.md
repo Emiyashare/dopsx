@@ -3,10 +3,10 @@ name: sync
 description: "Merge the requirements checked in a dopsx document job into the requirement library (要求库) without archiving the job. Use when the user wants the library updated now, for example so another document job can already rely on those requirements."
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires the openspec CLI (tested with 1.12.0).
+compatibility: Requires the openspec CLI (tested with 1.16.0).
 metadata:
   author: dopsx
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Merge the requirements of a dopsx document job (its delta specs) into the requirement library (main specs).
@@ -17,7 +17,7 @@ dopsx is the document edition of OpenSpec's `/opsx`: the requirement library hol
 
 `<capability-path>` is the spec directory relative to `specs/` (for example `company-setup/registration` or `invoice/qualified-invoice`). Preserve the full path from each delta spec when resolving its main spec.
 
-**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.12.0` (requires Node.js; dopsx is tested with openspec 1.12.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
+**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.16.0` (requires Node.js 22.12 or newer; dopsx is tested with openspec 1.16.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
 
 **Input**: Optionally specify a job name after `/dopsx:sync` (e.g., `/dopsx:sync sample-company-setup`). If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available jobs.
 
@@ -104,6 +104,13 @@ dopsx is the document edition of OpenSpec's `/opsx`: the requirement library hol
 
    b. **Read the main spec** at `<planningHome.root>/openspec/specs/<capability-path>/spec.md` (may not exist yet)
 
+      **If it does not exist yet** (a new capability), match what `openspec archive` does:
+      only ADDED requirements may be applied - step d creates the spec from them.
+      MODIFIED and RENAMED have no requirement to act on, so stop the sync for that
+      capability and report that its main spec does not exist and only ADDED is allowed
+      for a new spec; never invent the missing requirement. REMOVED has nothing to
+      remove - skip it and warn.
+
    c. **Apply changes intelligently**:
 
       **ADDED Requirements:**
@@ -157,6 +164,14 @@ dopsx is the document edition of OpenSpec's `/opsx`: the requirement library hol
         (this is what `openspec archive` does; it warns and moves on)
 
    d. **Create new main spec** if capability doesn't exist yet:
+      - Only when the delta has ADDED requirements to put in it and no MODIFIED or
+        RENAMED requirements blocked this capability in step b. Otherwise create nothing
+        and leave the library untouched. For a REMOVED-only delta, if the job's
+        `.openspec.yaml` declares `retire_capabilities: true`, report it as already retired
+        and continue without recreating the spec. Without that marker, report the sync as blocked:
+        `openspec archive` rejects it with `Spec must have at least one requirement`.
+        An empty delta has no operations to sync; report it as blocked too.
+        Never write an empty `## Requirements` section.
       - Create `<planningHome.root>/openspec/specs/<capability-path>/spec.md`
       - Add Purpose section: copy the delta's `## Purpose` body verbatim when it has one
         (this is what `openspec archive` does); only write a brief TBD placeholder when it does not

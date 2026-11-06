@@ -3,17 +3,17 @@ name: apply
 description: "Carry out a dopsx document job (执行文书工作): produce the documents on its checklist, save final versions to documents/<job>/, tick our own items, and pause at items owned by the client or an office. Use when the user wants to start or continue the document work of a planned job."
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires the openspec CLI (tested with 1.12.0).
+compatibility: Requires the openspec CLI (tested with 1.16.0).
 metadata:
   author: dopsx
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Carry out the checklist of a dopsx document job.
 
 dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI underneath, but the work is documents, never code. Final versions go to `<planningHome.root>/documents/<name>/`; drafts and working files stay in the job folder. Write everything the user reads in the user's language (Chinese unless the user writes in another language).
 
-**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.12.0` (requires Node.js; dopsx is tested with openspec 1.12.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
+**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.16.0` (requires Node.js 22.12 or newer; dopsx is tested with openspec 1.16.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
 
 **Input**: Optionally specify a job name (e.g., `/dopsx:apply sample-company-setup`). If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available jobs.
 
@@ -46,14 +46,17 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI under
    This returns:
    - `contextFiles`: artifact ID -> array of concrete file paths (proposal, specs, design, tasks for doc-driven)
    - Progress (total, complete, remaining)
-   - Task list with status
+   - Task list with status, source path, and source line
    - Dynamic instruction based on current state
    - Optional `context`: current required instruction input from the selected root
    - Optional `operationGuidance`: current advisory guidance for apply
+   - `missingArtifacts` (when present): required artifact ids with no output
 
    **Handle states:**
-   - If `state: "blocked"` (missing artifacts): show the message and suggest `/dopsx:continue <name>` to finish the plan (or run `openspec status --change "<name>" --json` to see the next artifact and `openspec instructions <artifact-id> --change "<name>" --json` for how to create it)
-   - If `state: "all_done"`: congratulate, suggest `/dopsx:verify` and then `/dopsx:archive`
+   - If `state: "blocked"`: show the message and pause the work.
+     - If `missingArtifacts` is non-empty: suggest `/dopsx:continue <name>` to create them.
+     - Otherwise, follow the CLI instruction to create or repair the checklist file the schema tracks, from the existing planning artifacts. Do not assume another artifact is ready or start the document work while blocked.
+   - If `state: "all_done"`: report that all checklist items are complete, and suggest `/dopsx:verify` and then `/dopsx:archive`
    - Otherwise: proceed
 
    Treat `context` as a required prompt-level input. Read and consider it, and
@@ -100,7 +103,9 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI under
      - Use the tools and skills suited to the file format (for example the docx skill for Word files, the pdf skill for PDF); when practical, render or re-open the result to check it
      - Leave the intended blanks from design.md 预期的空白 blank; never invent dates, signatures, seals or amounts
      - Never write credentials into any file; steps that need the client's account are done by the client
-   - Mark the item complete in tasks.md: `- [ ]` → `- [x]`, only when its completion check is fully met
+   - Before ticking, confirm the checkbox at the item's returned `sourcePath` and `line` still matches the item's description; if it does not, rerun the apply instructions and use the refreshed location
+   - Mark the item complete at its returned `sourcePath` and `line`: `- [ ]` → `- [x]`, only when its completion check is fully met
+   - Rerun the apply instructions and confirm that the item is now done and progress changed
    - Continue to the next item
 
    **Pause if:**
@@ -207,6 +212,7 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI under
 - When an item needs work beyond what the requirements describe, surface the added scope and pause - never silently narrow, defer, or simplify away a requirement
 - Only mark an item `- [x]` when its completion check is fully met, not when it is partially done or deferred
 - Use contextFiles from CLI output, don't assume specific file names
+- Use each item's sourcePath and line to update its exact checkbox
 - Do not use context or operation guidance as proof that an item is complete
 - Never write credentials into any file
 - Apply relevant context; report conflicts with controlling workflow inputs

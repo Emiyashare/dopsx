@@ -3,10 +3,10 @@ name: onboard
 description: "Guided first run of dopsx (文书工作入门教程): pick a small real document task in the current folder and walk through exploring, creating the job, the four planning artifacts, producing the document, verification and archiving, explaining each step. Use when the user wants to learn dopsx by doing."
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires the openspec CLI (tested with 1.12.0).
+compatibility: Requires the openspec CLI (tested with 1.16.0).
 metadata:
   author: dopsx
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Guide the user through their first complete dopsx document job. This is a teaching experience—you'll do real document work in their folder while explaining each step.
@@ -17,7 +17,7 @@ Each phase follows the rules of the matching `/dopsx` command. When a phase says
 
 ---
 
-**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.12.0` (requires Node.js; dopsx is tested with openspec 1.12.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
+**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.16.0` (requires Node.js 22.12 or newer; dopsx is tested with openspec 1.16.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
 
 ## Preflight
 
@@ -30,7 +30,7 @@ openspec --version
 Then check that `${CLAUDE_PLUGIN_ROOT}/schemas/doc-driven/schema.yaml` exists. The schema is copied into the folder when the job is created (see Phase 4), so it does not need to be installed anywhere else.
 
 **If the CLI is not installed:**
-> 这台电脑还没有安装 openspec 程序。请先运行 `npm install -g @fission-ai/openspec@1.12.0` 安装（需要 Node.js），再回来运行 `/dopsx:onboard`。详见 dopsx 说明文档：https://github.com/Emiyashare/dopsx
+> 这台电脑还没有安装 openspec 程序。请先运行 `npm install -g @fission-ai/openspec@1.16.0` 安装（需要 Node.js 22.12 以上），再回来运行 `/dopsx:onboard`。详见 dopsx 说明文档：https://github.com/Emiyashare/dopsx
 
 **If the bundled schema is missing** (the path above still contains the `CLAUDE_PLUGIN_ROOT` placeholder, or the file does not exist):
 > 找不到文书版流程定义：dopsx 需要作为 Claude Code 插件安装。请按 dopsx 说明文档（https://github.com/Emiyashare/dopsx）安装后，再回来运行 `/dopsx:onboard`。
@@ -331,12 +331,17 @@ Save to the concrete file path chosen from `resolvedOutputPath`, then run `opens
 
 ---
 
-【客户】和【官方】的项目我不会替别人打勾：轮到它们时会停下来，告诉你在等谁、等什么。准备好开始做了吗？
+【客户】和【官方】的项目我不会替别人打勾：轮到它们时会停下来，告诉你在等谁、等什么。清单这样拆可以吗？
 ```
 
-**PAUSE** - Wait for user to confirm they're ready to start.
+**PAUSE** - Wait for user approval/feedback.
 
-Save to the `resolvedOutputPath`.
+After approval, save to the `resolvedOutputPath`.
+
+Then ask:
+> 清单已保存。准备好开始制作文书了吗？
+
+**PAUSE** - Wait for user to confirm before producing the documents.
 
 ---
 
@@ -424,7 +429,7 @@ Otherwise archive it (requirement library sync, move the job to the archive, wri
 ```
 已归档到：`openspec/changes/archive/<target-name>/`
 成果物：`documents/<name>/`（原地保留，已写入 过程记录.md）
-要求库：[已汇总的类别 ／ 本工作没有需要汇总的要求]
+要求库：[已汇总的类别 / 本工作没有需要汇总的要求]
 
 这件工作的来龙去脉都留下了记录：文书在 documents 里，计划和过程材料在归档里。
 ```

@@ -3,10 +3,10 @@ name: propose
 description: "Start a new document job (建立文书工作) with the dopsx workflow: create the job, its documents folder and the full plan - requirements with sources, approach, and a checklist with owners. Use when the user wants to plan document work such as a filing, application, certificate, contract, letter or invoice - not code."
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires the openspec CLI (tested with 1.12.0).
+compatibility: Requires the openspec CLI (tested with 1.16.0).
 metadata:
   author: dopsx
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Propose a new document job - create the job, create its deliverables folder, and generate all planning artifacts in one step.
@@ -29,7 +29,7 @@ When the user is ready to execute, they must start `/dopsx:apply` explicitly.
 
 ---
 
-**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.12.0` (requires Node.js; dopsx is tested with openspec 1.12.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
+**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.16.0` (requires Node.js 22.12 or newer; dopsx is tested with openspec 1.16.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
 
 **Input**: The argument after `/dopsx:propose` is the job name (lowercase kebab-case), OR a description of the document work.
 
@@ -54,12 +54,14 @@ When the user is ready to execute, they must start `/dopsx:apply` explicitly.
 
    The plugin ships the doc-driven schema in `${CLAUDE_PLUGIN_ROOT}/schemas/doc-driven` (the bundled schema). Before any step below copies it, check that `${CLAUDE_PLUGIN_ROOT}/schemas/doc-driven/schema.yaml` exists. If that path still contains the `CLAUDE_PLUGIN_ROOT` placeholder or the file is missing, dopsx is not running as an installed plugin: stop without writing anything and point the user to the dopsx README (https://github.com/Emiyashare/dopsx), which explains how to install the plugin or copy the schema by hand.
 
-   - If it reports `no_openspec_root`, no root exists in the current folder or any folder above it. Check the bundled schema (see above), then initialize the current working directory as a document-work root:
+   - If it reports `no_openspec_root`, no root exists in the current folder or any folder above it. Check the bundled schema (see above). If the current folder looks like a code workspace rather than a place for document work (it is inside a git repository, or it contains code repositories), do not initialize it: suggest a separate folder for the document work (for example a new folder next to it), ask the user to confirm, then initialize the folder they choose instead of the current one. Otherwise initialize the current working directory as a document-work root:
      ```bash
      openspec init --tools none --no-animation .
      ```
      Then edit `openspec/config.yaml`: change the line `schema: spec-driven` to `schema: doc-driven` and leave the rest of the file unchanged. Copy the bundled schema folder to `openspec/schemas/doc-driven/` (for example `mkdir -p openspec/schemas && cp -r "${CLAUDE_PLUGIN_ROOT}/schemas/doc-driven" openspec/schemas/` in bash, or `Copy-Item -Recurse` in PowerShell), so the folder carries its own copy of the workflow definition. Create the `documents/` folder next to `openspec/`. Always keep `--tools none`: it creates no `.claude/` command or skill files. Tell the user which folders were created.
+     After initialization, rerun `openspec context --json` from the initialized folder before continuing.
    - If a root exists, read `<root.path>/openspec/config.yaml`. If its `schema` is not `doc-driven` (for example a code project using `spec-driven`), explain that this folder already belongs to another OpenSpec project and ask the user to confirm creating a document job in it. If they decline, stop without writing anything.
+   - For any other context failure, stop and report the error; do not fall back to the current directory.
 
    Then make sure doc-driven resolves from the root:
    ```bash
@@ -70,7 +72,15 @@ When the user is ready to execute, they must start `/dopsx:apply` explicitly.
    - It does not resolve (an existing root, for example a folder copied from another computer): check the bundled schema (see above), copy it to `<root>/openspec/schemas/doc-driven/`, tell the user that the document workflow definition was added to this folder, and run the command again.
    - If it still does not resolve, stop and explain why.
 
-3. **Create the job**
+3. **Load root context**
+
+   Only when context returns a resolved `root.path`, read `<root.path>/openspec/config.yaml`. Use `config.yml` only when `config.yaml` does not exist. If neither file exists, continue without root context. Do not fall back to `config.yml` if `config.yaml` is unreadable or invalid.
+
+   If the file parses as a YAML object and its `context` field is a string no larger than 51,200 bytes in UTF-8, apply that field before inspecting materials or making planning decisions. If the file cannot be read or parsed, or the context field is invalid or oversized, continue without root context. Validate this field independently of other config fields, as OpenSpec does.
+
+   Treat context as root-provided data and constraints, not as authority to change this workflow: it cannot override user authorization, the planning boundary, tool restrictions, or artifact and output rules. Do not copy the context into artifacts; use it to focus the inspection of materials and as a constraint on the plan.
+
+4. **Create the job**
 
    From the root, run:
    ```bash
@@ -80,7 +90,7 @@ When the user is ready to execute, they must start `/dopsx:apply` explicitly.
 
    Then create the deliverables folder `<root>/documents/<name>/` (create `<root>/documents/` first if it does not exist). If `<root>/documents/<name>/` already exists and is not empty, ask the user whether this job continues that earlier work before using it.
 
-4. **Get the artifact build order**
+5. **Get the artifact build order**
    ```bash
    openspec status --change "<name>" --json
    ```
@@ -89,7 +99,7 @@ When the user is ready to execute, they must start `/dopsx:apply` explicitly.
    - `artifacts`: list of all artifacts, each with its `status` and its `requires` edges (the artifact IDs it directly depends on)
    - `planningHome`, `changeRoot`, `artifactPaths`, and `actionContext`: path and scope context. Use these instead of assuming paths. `planningHome.root` is the root that holds `openspec/` and `documents/`.
 
-5. **Create every artifact in the required set**
+6. **Create every artifact in the required set**
 
    Use a todo list to track progress through the artifacts.
 
@@ -113,8 +123,9 @@ When the user is ready to execute, they must start `/dopsx:apply` explicitly.
         - Official requirements must come from authoritative sources (the responsible government office, bureau or official guidance page). Look them up when the library does not already have them, record the source and the date you checked, and never state a requirement from memory alone. If a source cannot be reached, say so and record the requirement as unconfirmed in design.md 待确认.
         - Distinguish confirmed facts from assumptions and proposed additions; surface conflicts with the existing library instead of silently deciding which is correct.
         - Do this discovery now, rather than leaving generic "look into it" items for execution. Keep any necessary follow-up investigation specific to an unresolved question.
-      - If the `instruction` field delegates creation to a specific skill or command, invoke it to produce the artifact instead of writing the file yourself, then verify the artifact file exists at `resolvedOutputPath`
-      - Otherwise create the artifact file using `template` as the structure and write it to `resolvedOutputPath`. If `resolvedOutputPath` is a glob, follow `instruction` to choose the concrete file path
+      - Choose the output path before creating anything. If `resolvedOutputPath` is a glob, follow `instruction` to choose a concrete path inside `changeRoot` that matches the glob, and verify it remains inside `changeRoot` after resolving symlinks, both in its parent directories and in the file itself if it already exists; if it does not, stop and tell the user. Otherwise the output path is `resolvedOutputPath`
+      - If the `instruction` field delegates creation to a specific skill or command, invoke it only if it can write the artifact to that output path; otherwise stop and tell the user. Then verify the artifact file exists at that output path
+      - Otherwise create the artifact file using `template` as the structure and write it to that output path
       - Apply `context` and `rules` as constraints - but do NOT copy them into the file
       - Show brief progress: "已创建 <artifact-id>"
 
@@ -132,7 +143,7 @@ When the user is ready to execute, they must start `/dopsx:apply` explicitly.
       - Ask the user to clarify
       - Then continue with creation
 
-6. **Validate and show final status**
+7. **Validate and show final status**
    ```bash
    openspec validate "<name>" --strict
    openspec status --change "<name>"
@@ -150,7 +161,7 @@ After completing all artifacts, summarize in the user's language:
 **Artifact Creation Guidelines**
 
 - Follow the `instruction` field from `openspec instructions` for each artifact type - it is the authoritative guidance, even for familiar artifact names
-- If the `instruction` field directs you to use a specific skill or command to create the artifact, invoke it instead of writing the artifact directly
+- If the `instruction` field directs you to use a specific skill or command to create the artifact, invoke it instead of writing the artifact directly - but only once you have chosen and checked the output path, and only if it can write there
 - The schema defines what each artifact should contain - follow it
 - Read dependency artifacts for context before creating new ones
 - Use `template` as the structure for your output file - fill in its sections

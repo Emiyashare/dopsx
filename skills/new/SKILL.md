@@ -3,10 +3,10 @@ name: new
 description: "Create a new dopsx document job without writing its plan yet (新建文书工作): set up the folder if needed, create the job and its documents folder, and show the template of the first planning artifact. Use when the user wants to start a document job step by step."
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires the openspec CLI (tested with 1.12.0).
+compatibility: Requires the openspec CLI (tested with 1.16.0).
 metadata:
   author: dopsx
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Start a new dopsx document job, one step at a time.
@@ -15,7 +15,7 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same steps and the same
 
 Write everything the user reads in the user's language (Chinese unless the user writes in another language).
 
-**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.12.0` (requires Node.js; dopsx is tested with openspec 1.12.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
+**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.16.0` (requires Node.js 22.12 or newer; dopsx is tested with openspec 1.16.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
 
 **Input**: The argument after `/dopsx:new` is the job name (lowercase kebab-case), OR a description of the document work.
 
@@ -38,7 +38,7 @@ Write everything the user reads in the user's language (Chinese unless the user 
 
    The plugin ships the doc-driven schema in `${CLAUDE_PLUGIN_ROOT}/schemas/doc-driven` (the bundled schema). Before any step below copies it, check that `${CLAUDE_PLUGIN_ROOT}/schemas/doc-driven/schema.yaml` exists. If that path still contains the `CLAUDE_PLUGIN_ROOT` placeholder or the file is missing, dopsx is not running as an installed plugin: stop without writing anything and point the user to the dopsx README (https://github.com/Emiyashare/dopsx), which explains how to install the plugin or copy the schema by hand.
 
-   - If it reports `no_openspec_root`, no root exists in the current folder or any folder above it. Check the bundled schema (see above), then initialize the current working directory as a document-work root:
+   - If it reports `no_openspec_root`, no root exists in the current folder or any folder above it. Check the bundled schema (see above). If the current folder looks like a code workspace rather than a place for document work (it is inside a git repository, or it contains code repositories), do not initialize it: suggest a separate folder for the document work (for example a new folder next to it), ask the user to confirm, then initialize the folder they choose instead of the current one. Otherwise initialize the current working directory as a document-work root:
      ```bash
      openspec init --tools none --no-animation .
      ```

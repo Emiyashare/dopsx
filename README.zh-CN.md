@@ -15,14 +15,14 @@ dopsx 是一个 Claude Code 插件，用来处理文书工作，例如公司设�
 ## 前提条件
 
 - Claude Code
-- Node.js
-- openspec 程序 1.12.0（dopsx 在这个版本上测试过）
+- Node.js 22.12 以上
+- openspec 程序 1.16.0（dopsx 在这个版本上测试过）
 
 ## 安装、更新、卸载
 
 先安装 openspec 程序：
 
-    npm install -g @fission-ai/openspec@1.12.0
+    npm install -g @fission-ai/openspec@1.16.0
 
 再在终端里安装插件：
 
@@ -129,6 +129,7 @@ propose、new、continue、ff 的区别：
 - 如果要把正式版另存一份到客户的公司文件夹，把「复制到公司文件夹」写成清单的最后一项。
 - `/dopsx:apply` 不会改动你原来的材料（`documents` 和 `openspec` 以外的文件）：要改的文件先复制一份再改。确实要直接改原文件时，会先问你。
 - 如果这个文件夹已经是写代码用的 OpenSpec 项目，建立文书工作之前会先问你。
+- 如果这个文件夹还没有 `openspec`，但它在 git 仓库里或装着代码仓库，不会直接在这里建，会先建议另找一个文件夹（例如旁边新建一个），你确认后在那里建。
 
 ## 工作名的规则
 

@@ -3,10 +3,10 @@ name: continue
 description: "Write the next planning artifact of a dopsx document job, one at a time (继续写文书工作的计划): proposal, requirements with sources, approach, then the checklist with owners. Use when the user wants to move a document job's plan forward step by step."
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires the openspec CLI (tested with 1.12.0).
+compatibility: Requires the openspec CLI (tested with 1.16.0).
 metadata:
   author: dopsx
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Continue a dopsx document job by writing its next planning artifact.
@@ -17,7 +17,7 @@ Write everything the user reads (progress, questions, summaries) and all artifac
 
 **Planning boundary**: This workflow writes planning artifacts only. Do not produce, draft or fill in any deliverable; that is `/dopsx:apply`'s job.
 
-**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.12.0` (requires Node.js; dopsx is tested with openspec 1.12.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
+**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.16.0` (requires Node.js 22.12 or newer; dopsx is tested with openspec 1.16.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
 
 **Input**: Optionally specify a job name after `/dopsx:continue` (e.g., `/dopsx:continue sample-company-setup`). If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available jobs.
 
@@ -32,7 +32,6 @@ Write everything the user reads (progress, questions, summaries) and all artifac
 
    When prompting, present the top 3-4 most recently modified jobs as options, showing:
    - Job name
-   - Schema (from `schema` field if present, otherwise "spec-driven")
    - Status (e.g., "0/5 项", "complete", "no tasks")
    - How recently it was modified (from `lastModified` field)
 
@@ -53,6 +52,13 @@ Write everything the user reads (progress, questions, summaries) and all artifac
    If `<planningHome.root>/documents/<name>/` does not exist, create it.
 
 3. **Act based on status**:
+
+   ---
+
+   **Before anything else, finish a partly written artifact**:
+   - An artifact whose output is a glob pattern (e.g. `specs/**/*.md`) reads `done` as soon as one matching file exists, so a run interrupted while writing its files leaves it `done` with some still missing
+   - For each such `done` artifact, first get its instructions and read any completed dependencies needed to determine the expected files. Then compare those files with `artifactPaths.<id>.existingOutputPaths`. For doc-driven's `specs`, read the proposal and check for one `specs/<capability-path>/spec.md` per category listed in its 要求 section; resolve each expected path against `changeRoot` before comparing path identity, and verify each one remains inside `changeRoot` after resolving symlinks, both in its parent directories and in the file itself if it already exists
+   - Never write an expected path that fails that check; stop and tell the user. If any are missing, write only the missing files, each at its checked path - when the `instruction` field delegates creation to a skill or command, invoke it only if it can write each file to its checked path; otherwise stop and tell the user - then run the **specs** check under **Right after writing the artifact** below, and STOP - that counts as this invocation's ONE artifact. If you cannot tell whether a file was left out on purpose, ask the user
 
    ---
 
@@ -83,10 +89,13 @@ Write everything the user reads (progress, questions, summaries) and all artifac
      - **Inspect the relevant materials before drafting**: look at what already exists: the requirement library under `<planningHome.root>/openspec/specs/`, archived jobs under `<planningHome.root>/openspec/changes/archive/` that handled similar documents, the files the user provided or pointed to (client materials, earlier versions, samples), and `<planningHome.root>/documents/`. Keep inspection read-only and proportional to the job.
        - Official requirements must come from authoritative sources (the responsible government office, bureau or official guidance page). Look them up when the library does not already have them, record the source and the date you checked, and never state a requirement from memory alone. If a source cannot be reached, say so and record the requirement as unconfirmed in design.md 待确认.
        - Distinguish confirmed facts from assumptions; surface conflicts with the existing library instead of silently deciding which is correct.
-     - If the `instruction` field delegates creation to a specific skill or command, invoke it to produce the artifact instead of writing the file yourself, then verify the artifact file exists at `resolvedOutputPath`
-     - Otherwise use `template` as the structure - fill in its sections
-     - Apply `context` and `rules` as constraints when writing - but do NOT copy them into the file
-     - Write to the `resolvedOutputPath` specified in instructions. If it is a glob pattern, choose the concrete file path using the schema instruction and the job's context
+     - Choose the output path before creating anything. If the `resolvedOutputPath` specified in instructions is a glob pattern, choose a concrete path inside `changeRoot` using the schema instruction and the job's context, and verify it remains inside `changeRoot` after resolving symlinks, both in its parent directories and in the file itself if it already exists; if it does not, stop and tell the user. Otherwise the output path is `resolvedOutputPath`
+     - If the `instruction` field delegates creation to a specific skill or command, invoke it only if it can write the artifact to that output path; otherwise stop and tell the user
+     - Otherwise, write it yourself:
+       - Use `template` as the structure - fill in its sections
+       - Apply `context` and `rules` as constraints when writing - but do NOT copy them into the file
+       - Write the file to that output path
+     - Either way, verify the artifact file exists at that output path
    - **Right after writing the artifact**:
      - **proposal**: if its 要求 section says 无 (the job has no requirements to check), append the line `skip_specs: true` to the job's `.openspec.yaml` now, then re-run status: `specs` must read `skipped`. Decide this only from the proposal's content, and never invent a requirement to avoid skipping
      - **specs**: run `openspec validate "<name>" --strict`. If it reports problems in the requirement files (for example a requirement without SHALL or MUST, or a scenario that does not use `####`), fix them and validate again
@@ -118,7 +127,7 @@ After each invocation, show in the user's language:
 
 The `instruction` field from the instructions output is the authoritative guidance for each artifact - follow it even for familiar names (proposal.md, tasks.md, etc.), since the doc-driven schema defines document content for the same file names.
 
-If the `instruction` field directs you to use a specific skill or command to create the artifact, invoke it instead of writing the artifact directly.
+If the `instruction` field directs you to use a specific skill or command to create the artifact, invoke it instead of writing the artifact directly - but only once you have chosen and checked the output path, and only if it can write there.
 
 **Guardrails**
 - Create ONE artifact per invocation

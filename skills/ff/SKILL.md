@@ -3,10 +3,10 @@ name: ff
 description: "Fast-forward a new dopsx document job (一次写完文书工作的计划): create the job and its documents folder and write the whole plan in one go, asking only when key facts are missing. Use when the user wants the full plan of a document job right away."
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires the openspec CLI (tested with 1.12.0).
+compatibility: Requires the openspec CLI (tested with 1.16.0).
 metadata:
   author: dopsx
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Fast-forward through planning - create a document job and write everything needed to start producing its documents.
@@ -27,7 +27,7 @@ Write everything the user reads (progress, questions, summaries) and all artifac
 
 ---
 
-**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.12.0` (requires Node.js; dopsx is tested with openspec 1.12.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
+**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.16.0` (requires Node.js 22.12 or newer; dopsx is tested with openspec 1.16.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
 
 **Input**: The argument after `/dopsx:ff` is the job name (lowercase kebab-case), OR a description of the document work.
 
@@ -50,7 +50,7 @@ Write everything the user reads (progress, questions, summaries) and all artifac
 
    The plugin ships the doc-driven schema in `${CLAUDE_PLUGIN_ROOT}/schemas/doc-driven` (the bundled schema). Before any step below copies it, check that `${CLAUDE_PLUGIN_ROOT}/schemas/doc-driven/schema.yaml` exists. If that path still contains the `CLAUDE_PLUGIN_ROOT` placeholder or the file is missing, dopsx is not running as an installed plugin: stop without writing anything and point the user to the dopsx README (https://github.com/Emiyashare/dopsx), which explains how to install the plugin or copy the schema by hand.
 
-   - If it reports `no_openspec_root`, no root exists in the current folder or any folder above it. Check the bundled schema (see above), then initialize the current working directory as a document-work root:
+   - If it reports `no_openspec_root`, no root exists in the current folder or any folder above it. Check the bundled schema (see above). If the current folder looks like a code workspace rather than a place for document work (it is inside a git repository, or it contains code repositories), do not initialize it: suggest a separate folder for the document work (for example a new folder next to it), ask the user to confirm, then initialize the folder they choose instead of the current one. Otherwise initialize the current working directory as a document-work root:
      ```bash
      openspec init --tools none --no-animation .
      ```
@@ -111,8 +111,9 @@ Write everything the user reads (progress, questions, summaries) and all artifac
         - Official requirements must come from authoritative sources (the responsible government office, bureau or official guidance page). Look them up when the library does not already have them, record the source and the date you checked, and never state a requirement from memory alone. If a source cannot be reached, say so and record the requirement as unconfirmed in design.md 待确认.
         - Distinguish confirmed facts from assumptions and proposed additions; surface conflicts with the existing library instead of silently deciding which is correct.
         - Do this discovery now, rather than leaving generic "look into it" items for execution. Keep any necessary follow-up investigation specific to an unresolved question.
-      - If the `instruction` field delegates creation to a specific skill or command, invoke it to produce the artifact instead of writing the file yourself, then verify the artifact file exists at `resolvedOutputPath`
-      - Otherwise create the artifact file using `template` as the structure and write it to `resolvedOutputPath`. If `resolvedOutputPath` is a glob, follow `instruction` to choose the concrete file path
+      - Choose the output path before creating anything. If `resolvedOutputPath` is a glob, follow `instruction` to choose a concrete path inside `changeRoot` that matches the glob, and verify it remains inside `changeRoot` after resolving symlinks, both in its parent directories and in the file itself if it already exists; if it does not, stop and tell the user. Otherwise the output path is `resolvedOutputPath`
+      - If the `instruction` field delegates creation to a specific skill or command, invoke it only if it can write the artifact to that output path; otherwise stop and tell the user. Then verify the artifact file exists at that output path
+      - Otherwise create the artifact file using `template` as the structure and write it to that output path
       - Apply `context` and `rules` as constraints - but do NOT copy them into the file
       - Show brief progress: "✓ 已创建 <artifact-id>"
 
@@ -149,7 +150,7 @@ After completing all artifacts, summarize in the user's language:
 **Artifact Creation Guidelines**
 
 - Follow the `instruction` field from `openspec instructions` for each artifact type - it is the authoritative guidance, even for familiar artifact names
-- If the `instruction` field directs you to use a specific skill or command to create the artifact, invoke it instead of writing the artifact directly
+- If the `instruction` field directs you to use a specific skill or command to create the artifact, invoke it instead of writing the artifact directly - but only once you have chosen and checked the output path, and only if it can write there
 - The schema defines what each artifact should contain - follow it
 - Read dependency artifacts for context before creating new ones
 - Use `template` as the structure for your output file - fill in its sections

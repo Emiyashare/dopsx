@@ -3,10 +3,10 @@ name: archive
 description: "Archive a finished dopsx document job (归档文书工作): refuse while checklist items, client or office waits, or open questions remain; move the plan to the archive, keep documents/<job>/ in place with a process record, and merge the checked requirements into the requirement library. Use when the user wants to close a document job."
 allowed-tools: Bash(openspec:*)
 license: MIT
-compatibility: Requires the openspec CLI (tested with 1.12.0).
+compatibility: Requires the openspec CLI (tested with 1.16.0).
 metadata:
   author: dopsx
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Archive a finished dopsx document job.
@@ -15,7 +15,7 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI under
 
 `<capability-path>` is the spec directory relative to `specs/` (for example `company-setup/registration`). Preserve the full path from each delta spec when resolving its main spec in the requirement library.
 
-**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.12.0` (requires Node.js; dopsx is tested with openspec 1.12.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
+**Prerequisite - openspec CLI**: Before the first `openspec` command below, check that the CLI is available (`openspec --version`). If the command is not found, stop immediately without creating or changing any file, and tell the user, in their language, to install it with `npm install -g @fission-ai/openspec@1.16.0` (requires Node.js 22.12 or newer; dopsx is tested with openspec 1.16.0) and to see the dopsx README: https://github.com/Emiyashare/dopsx
 
 **Input**: Optionally specify a job name after `/dopsx:archive` (e.g., `/dopsx:archive sample-company-setup`). If omitted, check if it can be inferred from conversation context. If vague or ambiguous you MUST prompt for available jobs.
 
@@ -76,9 +76,21 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI under
 
    This is stricter than `/opsx:archive`: dopsx never archives a job that still has open items.
 
+   Run `openspec list --json` and find the entry in `changes` whose `name`
+   exactly matches the selected job. Require exactly one match and nonnegative
+   integer `totalTasks` and `completedTasks`, with `completedTasks <= totalTasks`.
+   Open checklist items = `totalTasks - completedTasks`; the items listed under
+   未完成 and 等待中 below must add up to that number.
+
+   Do not infer checklist completion from artifact status. If the lookup fails,
+   returns invalid JSON, omits or duplicates the selected job, or returns invalid
+   counts, report the problem and stop before syncing or archiving.
+   The CLI counts only `x`/`X` checkbox markers as complete;
+   other markers, including unfamiliar ones, remain open.
+
    Collect every open item:
-   - **未完成**: unticked `- [ ]` items in tasks.md owned by 【我方】, or with no owner marker
-   - **等待中**: unticked `- [ ]` items owned by 【客户】 or 【官方】
+   - **未完成**: open checklist items in tasks.md owned by 【我方】, or with no owner marker
+   - **等待中**: open checklist items owned by 【客户】 or 【官方】
    - **待确认**: every item under the 待确认 section of design.md that is not a ticked `- [x]` line - unticked `- [ ]` lines, and plain list items or sentences written without a checkbox. Ignore HTML comments, blank lines and a line that only says 无
    - **成果物文件夹**: `<planningHome.root>/documents/<name>/` does not exist
 
@@ -105,17 +117,23 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI under
 
    **If delta specs exist:**
    - Compare each delta spec with its corresponding main spec at `<planningHome.root>/openspec/specs/<capability-path>/spec.md`
+   - A missing main spec is **not automatically** "already synced". For a new capability, the main spec is an *output* of the sync, not an input:
+     - If the delta has MODIFIED or RENAMED requirements, report that only ADDED requirements can create a new main spec and mark that capability as sync-blocked. Never invent a requirement that has no current version.
+     - Otherwise, if the delta has only REMOVED requirements and the job's `.openspec.yaml` declares `retire_capabilities: true`, the capability is already retired: count it as already synced, warn that there is nothing left to remove, and do not recreate the main spec. Apply this rule both now and when verifying a completed sync.
+     - Otherwise, if the delta has no ADDED requirements, report that no sync is possible and mark that capability as sync-blocked. For a REMOVED-only delta, warn that there is no main spec to remove from and leave the library unchanged. `openspec archive` refuses the unmarked REMOVED-only case with `Spec must have at least one requirement`.
+     - Otherwise, count the capability as needing sync and name it in the summary (`<capability-path>：将新建要求文件`). If the delta also has REMOVED requirements, warn that they will be ignored because there is no main spec to remove from. The sync creates the main spec from only the delta's ADDED requirements, exactly as `openspec archive` does.
    - Determine what changes would be applied (adds, modifications, removals, renames)
-   - Show a combined summary before prompting
+   - Continue assessing the remaining capabilities even when one is sync-blocked. Show a combined summary before prompting.
 
    **Prompt options:**
-   - If changes needed: "现在汇总进要求库（推荐）", "不汇总，直接归档"
-   - If already synced: "直接归档", "再汇总一次", "取消"
+   - If any capability is sync-blocked: explain why and offer only "不汇总，直接归档", "取消"
+   - Otherwise, if changes needed: "现在汇总进要求库（推荐）", "不汇总，直接归档"
+   - Otherwise, if already synced: "直接归档", "再汇总一次", "取消"
 
    Route on the answer:
    - "取消" — stop, do not archive
    - "不汇总，直接归档" or "直接归档" — proceed to archive
-   - "现在汇总进要求库" or "再汇总一次" — sync, then verify (below)
+   - "现在汇总进要求库" or "再汇总一次" — sync, then verify (below). Do not start any sync while a capability is sync-blocked; explain the blocker and repeat the available choices.
    - Anything else — ask again rather than archiving
 
    Before a selected sync writes any main spec, run
@@ -129,10 +147,21 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI under
 
    Then run the `/dopsx:sync` workflow inline (agent-driven intelligent merge) for job '<name>', passing the delta spec analysis, the personal-data check result from step 4, and the fetched specs-rule snapshot from above, and wait for it to finish. The inline sync must reuse that snapshot without fetching `specs` instructions again. Do not delegate it to a background task — step 6 would move `changeRoot` out from under a sync that is still reading it, leaving the job archived and the library never updated. If your agent can only run it by delegation, delegate synchronously and wait for the result.
 
-   Then re-run the comparison from the top of this step against every capability that has a delta spec in `artifactPaths.specs.existingOutputPaths` — not only the ones the sync reports it touched. A successful sync leaves nothing left to apply, so each capability must now read as already synced:
+   If the sync reports any stop or blocking condition, treat the sync as failed.
+   Stop the archive immediately. Do not perform the post-sync content comparison and do not move the job's `changeRoot`.
+   Nothing has moved, so the user can fix the blocking condition or re-run the sync.
+
+   After the sync writes each main spec, verify its structure against the canonical sync contract:
+   - A new main spec starts with a `# <capability> Specification` title. An existing main spec keeps its title exactly as it is.
+   - Preserve existing `## Purpose` sections completely untouched for established main specs.
+   - For a new main spec, copy the delta `## Purpose` verbatim. Warn only if the purpose text is shorter than standard validation expects. Do not regenerate or rewrite existing authored purpose. If no usable `## Purpose` is provided, use the existing TBD Purpose behavior and warning.
+   - Verify that no delta-style section headers (`## ADDED Requirements`, `## MODIFIED Requirements`, `## REMOVED Requirements`, `## RENAMED Requirements`) remain in the main spec, adhering strictly to the `/dopsx:sync` formatting rules.
+   - Requirement blocks the sync wrote or changed use `### Requirement:` headings with their `出处：…（确认日期：YYYY-MM-DD）` line directly under the requirement text, and their scenarios use `#### Scenario:` headings, under the spec's `## Requirements` section. Leave content the delta does not mention exactly as it is.
+
+   Then re-run the comparison from the top of this step, including the explicitly retired, missing-spec case, against every capability that has a delta spec in `artifactPaths.specs.existingOutputPaths` — not only the ones the sync reports it touched. A successful sync leaves nothing left to apply, so each capability must now read as already synced:
    - ADDED requirements present
    - MODIFIED requirements carrying the scenario and description changes named in the delta, with their other scenarios intact
-   - REMOVED requirements gone — and where this sync retired a capability (removed its last requirement, leaving `## Requirements` empty), its main spec deleted rather than left empty; a spec the sync deliberately kept and reported is also a match
+   - REMOVED requirements gone — and where this sync retired a capability (removed its last requirement, leaving `## Requirements` empty), its main spec deleted rather than left empty.
    - RENAMED requirements present under the new name and absent under the old one
 
    If the sync failed, or any capability does not match, report what differs and stop — do not archive. Nothing has moved and `changeRoot` is intact, so the user can fix the mismatch or re-run the sync and start the archive again.
@@ -167,7 +196,7 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI under
 
    - 计划与过程材料：`openspec/changes/archive/<target-name>/`（相对于 <planningHome.root>）
    - 清单：<X>/<X> 项已完成
-   - 要求库：<已汇总：列出 capability 路径 ／ 本次未汇总 ／ 本工作没有需要汇总的要求>
+   - 要求库：<已汇总：列出 capability 路径 / 本次未汇总 / 本工作没有需要汇总的要求>
    ```
 
 8. **Display summary**
@@ -219,7 +248,7 @@ dopsx is the document edition of OpenSpec's `/opsx`: the same openspec CLI under
 - <事项>
 
 ### 等待中
-- <事项>（等待：客户／官方）
+- <事项>（等待：客户/官方）
 
 ### 待确认
 - <问题>

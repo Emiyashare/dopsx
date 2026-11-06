@@ -1,6 +1,6 @@
 {
   "name": "dopsx",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Document-work edition of OpenSpec's /opsx: plan, produce, verify and archive filings, applications, contracts, letters and invoices with the openspec CLI. Docs in English, 中文 and 日本語.",
   "author": {
     "name": "Emiyashare",
